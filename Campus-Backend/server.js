@@ -1,4 +1,3 @@
-// Campus-Backend/server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -10,10 +9,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Routes - Only include locations for now
 app.use('/api/locations', require('./routes/locations'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/auth', require('./routes/auth'));
 
 // Test route
 app.get('/', (req, res) => {
@@ -25,17 +22,9 @@ app.get('/', (req, res) => {
 });
 
 // Connect to MongoDB
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/campusnav');
-    console.log('✅ MongoDB Connected Successfully');
-  } catch (error) {
-    console.error('❌ MongoDB Connection Error:', error);
-    process.exit(1);
-  }
-};
-
-connectDB();
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/campusnav')
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch(err => console.log('❌ MongoDB Connection Error:', err));
 
 // Start server
 const PORT = process.env.PORT || 5000;

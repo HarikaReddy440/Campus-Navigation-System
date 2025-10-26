@@ -1,11 +1,8 @@
-// Campus-Backend/routes/locations.js
 const express = require('express');
 const router = express.Router();
 const Location = require('../models/Location');
 
-// @desc    Get all locations
-// @route   GET /api/locations
-// @access  Public
+// GET all locations
 router.get('/', async (req, res) => {
   try {
     const locations = await Location.find({ isActive: true });
@@ -23,9 +20,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// @desc    Get single location
-// @route   GET /api/locations/:id
-// @access  Public
+// GET single location
 router.get('/:id', async (req, res) => {
   try {
     const location = await Location.findById(req.params.id);
@@ -50,29 +45,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// @desc    Create new location
-// @route   POST /api/locations
-// @access  Private/Admin
-router.post('/', async (req, res) => {
-  try {
-    const location = await Location.create(req.body);
-    
-    res.status(201).json({
-      success: true,
-      data: location
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Error creating location',
-      error: error.message
-    });
-  }
-});
-
-// @desc    Search locations
-// @route   GET /api/locations/search/:query
-// @access  Public
+// Search locations
 router.get('/search/:query', async (req, res) => {
   try {
     const { query } = req.params;
