@@ -1,0 +1,25 @@
+{
+  "name": "campus-frontend",
+  "version": "1.0.0",
+  "description": "Way2Valley Campus Navigation Frontend",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.0",
+    "axios": "^1.2.0",
+    "leaflet": "^1.9.0",
+    "react-leaflet": "^4.2.1",
+    "@types/leaflet": "^1.9.0",
+    "@mui/material": "^5.11.0",
+    "@emotion/react": "^11.10.0",
+    "@emotion/styled": "^11.10.0",
+    "@mui/icons-material": "^5.11.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  }
+}
+  
