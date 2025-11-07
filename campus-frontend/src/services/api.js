@@ -1,27 +1,30 @@
-// src/services/api.js
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const API = axios.create({
+  baseURL: 'http://localhost:5000/api',
 });
 
-// Locations API
-export const locationsAPI = {
-  getAll: () => api.get('/locations'),
-  getById: (id) => api.get(`/locations/${id}`),
-  search: (query) => api.get(`/locations/search/${query}`),
-  create: (data) => api.post('/locations', data),
-};
+// Add token to requests
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Auth API
 export const authAPI = {
-  register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', data),
+  login: (credentials) => API.post('/auth/login', credentials),
+  register: (userData) => API.post('/auth/register', userData),
 };
 
-export default api;
+export const locationsAPI = {
+  getAll: () => API.get('/locations'),
+  search: (query) => API.get(`/locations/search?q=${query}`),
+};
+
+export const seedAPI = {
+  addSampleData: () => API.post('/seed'),
+};
+
+export default API;

@@ -1,42 +1,31 @@
-// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
+import { AuthProvider } from './context/AuthContext';
+import Navbar from './components/Navbar';
 import Home from './pages/Home';
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#2E7D32',
-    },
-    secondary: {
-      main: '#FF6F00',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-  typography: {
-    h1: {
-      fontWeight: 700,
-    },
-    h2: {
-      fontWeight: 600,
-    },
-  },
-});
+import MapPage from './pages/MapPage';
+import SearchResults from './pages/SearchResults';
+import Login from './pages/Login';
+import SignUp from './pages/SignUp';
+import './styles/global.css';
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/" element={<Home />} />
-        </Routes>
+        <div className="App">
+          <Navbar />
+          
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/search" element={<SearchResults />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+          </Routes>
+        </div>
       </Router>
-    </ThemeProvider>
+    </AuthProvider>
   );
 }
 
