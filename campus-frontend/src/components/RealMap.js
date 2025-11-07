@@ -30,345 +30,490 @@ const destinationIcon = new L.Icon({
   iconAnchor: [15, 15],
 });
 
+// Custom icon for path waypoints
+const waypointIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOCIgZmlsbD0iIzNCODlGRiIgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
 // Map controller component
-function MapController({ center, zoom }) {
+function MapController({ center, zoom, bounds }) {
   const map = useMap();
   
   useEffect(() => {
-    map.setView(center, zoom, {
-      animate: true,
-      duration: 1.5
-    });
-  }, [center, zoom, map]);
+    if (bounds) {
+      map.fitBounds([
+        [bounds.south, bounds.west],
+        [bounds.north, bounds.east]
+      ], { padding: [20, 20] });
+    } else if (center) {
+      map.setView(center, zoom, {
+        animate: true,
+        duration: 1.5
+      });
+    }
+  }, [center, zoom, bounds, map]);
   
   return null;
 }
 
-const RealMap = ({ searchLocation, userLocation, onLocationSelect }) => {
-  const [route, setRoute] = useState([]);
-  const [destination, setDestination] = useState(null);
+const RealMap = ({ 
+  locations = [], 
+  center, 
+  zoom = 17, 
+  bounds,
+  onLocationClick,
+  userLocation,
+  isNavigating = false,
+  destination,
+  pathData,
+  onMapLoad 
+}) => {
+  const [routePath, setRoutePath] = useState([]);
+  const [waypoints, setWaypoints] = useState([]);
   const mapRef = useRef();
 
   // RGUKT RK Valley coordinates
   const campusPosition = [14.3353797, 78.5398846];
   
-  // Campus locations
+  // Enhanced campus locations data matching your RealMap component
   const campusLocations = [
-  {
-    id: 1,
-    name: "Old Campus Girls Hostel 2",
-    position: [14.338269621763377, 78.53688918115373],
-    description: "Older accommodation for female students",
-    type: "residential"
-  },
-  {
-    id: 2,
-    name: "Old Hostel Girls Hostel 1", 
-    position: [14.338501641019192, 78.53871969868588],
-    description: "Original girls hostel building",
-    type: "residential"
-  },
-  {
-    id: 3,
-    name: "Girls Hostel 1",
-    position: [14.33441091739434, 78.53802180480704],
-    description: "Primary girls accommodation block",
-    type: "residential"
-  },
-  {
-    id: 4,
-    name: "Girls Hostel 2",
-    position: [14.334626029045074, 78.53873303416631],
-    description: "Secondary girls accommodation block",
-    type: "residential"
-  },
-  {
-    id: 5,
-    name: "Boys Hostel 1",
-    position: [14.334201736559502, 78.53689410474732],
-    description: "Primary boys accommodation block",
-    type: "residential"
-  },
-  {
-    id: 6,
-    name: "Boys Hostel 2",
-    position: [14.33457843114412, 78.5404337784146],
-    description: "Secondary boys accommodation block",
-    type: "residential"
-  },
+    {
+      id: '1',
+      name: 'Old Campus Girls Hostel 2',
+      coordinates: { lat: 14.338269, lng: 78.536889 },
+      position: [14.338269, 78.536889],
+      description: 'Older accommodation for female students',
+      type: 'hostel'
+    },
+    {
+      id: '2',
+      name: 'Old Hostel Girls Hostel 1',
+      coordinates: { lat: 14.338501, lng: 78.538719 },
+      position: [14.338501, 78.538719],
+      description: 'Original girls hostel building',
+      type: 'hostel'
+    },
+    {
+      id: '3',
+      name: 'Girls Hostel 1',
+      coordinates: { lat: 14.334410, lng: 78.538021 },
+      position: [14.334410, 78.538021],
+      description: 'Primary girls accommodation block',
+      type: 'hostel'
+    },
+    {
+      id: '4',
+      name: 'Girls Hostel 2',
+      coordinates: { lat: 14.334626, lng: 78.538733 },
+      position: [14.334626, 78.538733],
+      description: 'Secondary girls accommodation block',
+      type: 'hostel'
+    },
+    {
+      id: '5',
+      name: 'Boys Hostel 1',
+      coordinates: { lat: 14.334201, lng: 78.536894 },
+      position: [14.334201, 78.536894],
+      description: 'Primary boys accommodation block',
+      type: 'hostel'
+    },
+    {
+      id: '6',
+      name: 'Boys Hostel 2',
+      coordinates: { lat: 14.334578, lng: 78.540433 },
+      position: [14.334578, 78.540433],
+      description: 'Secondary boys accommodation block',
+      type: 'hostel'
+    },
+    {
+      id: '7',
+      name: 'CSE BLOCK',
+      coordinates: { lat: 14.336055, lng: 78.541580 },
+      position: [14.336055, 78.541580],
+      description: 'Computer Science and Engineering Department',
+      type: 'academic'
+    },
+    {
+      id: '8',
+      name: 'ECE BLOCK',
+      coordinates: { lat: 14.334339, lng: 78.541674 },
+      position: [14.334339, 78.541674],
+      description: 'Electronics and Communication Engineering',
+      type: 'academic'
+    },
+    {
+      id: '9',
+      name: 'MME BLOCK',
+      coordinates: { lat: 14.337449, lng: 78.541580 },
+      position: [14.337449, 78.541580],
+      description: 'Metallurgical and Materials Engineering',
+      type: 'academic'
+    },
+    {
+      id: '10',
+      name: 'Mechanical Block',
+      coordinates: { lat: 14.336426, lng: 78.543423 },
+      position: [14.336426, 78.543423],
+      description: 'Mechanical Engineering Department',
+      type: 'academic'
+    },
+    {
+      id: '11',
+      name: 'Civil Block',
+      coordinates: { lat: 14.335202, lng: 78.543589 },
+      position: [14.335202, 78.543589],
+      description: 'Civil Engineering Department',
+      type: 'academic'
+    },
+    {
+      id: '12',
+      name: 'Chemical Block',
+      coordinates: { lat: 14.335252, lng: 78.542771 },
+      position: [14.335252, 78.542771],
+      description: 'Chemical Engineering Department',
+      type: 'academic'
+    },
+    {
+      id: '13',
+      name: 'EEE BLOCK',
+      coordinates: { lat: 14.336897, lng: 78.542637 },
+      position: [14.336897, 78.542637],
+      description: 'Electrical and Electronics Engineering',
+      type: 'academic'
+    },
+    {
+      id: '14',
+      name: 'ACADEMIC BLOCK 1',
+      coordinates: { lat: 14.334968, lng: 78.536993 },
+      position: [14.334968, 78.536993],
+      description: 'Main academic building - Block 1',
+      type: 'academic'
+    },
+    {
+      id: '15',
+      name: 'ACADEMIC BLOCK 2',
+      coordinates: { lat: 14.335212, lng: 78.539975 },
+      position: [14.335212, 78.539975],
+      description: 'Main academic building - Block 2',
+      type: 'academic'
+    },
+    {
+      id: '16',
+      name: 'CENTRAL LIBRARY',
+      coordinates: { lat: 14.335734, lng: 78.538381 },
+      position: [14.335734, 78.538381],
+      description: 'Main library with study areas',
+      type: 'academic'
+    },
+    {
+      id: '17',
+      name: 'MECHANICAL WORKSHOP',
+      coordinates: { lat: 14.336195, lng: 78.538857 },
+      position: [14.336195, 78.538857],
+      description: 'Mechanical engineering workshops',
+      type: 'academic'
+    },
+    {
+      id: '18',
+      name: 'LAB COMPLEX',
+      coordinates: { lat: 14.336225, lng: 78.538080 },
+      position: [14.336225, 78.538080],
+      description: 'Central laboratory complex',
+      type: 'academic'
+    },
+    {
+      id: '19',
+      name: 'Student Activity Center',
+      coordinates: { lat: 14.338162, lng: 78.540100 },
+      position: [14.338162, 78.540100],
+      description: 'Student clubs and activities',
+      type: 'facility'
+    },
+    {
+      id: '20',
+      name: 'GUEST HOUSE',
+      coordinates: { lat: 14.332184, lng: 78.537342 },
+      position: [14.332184, 78.537342],
+      description: 'Campus guest accommodation',
+      type: 'administrative'
+    },
+    {
+      id: '21',
+      name: 'DIRECTOR HOUSE',
+      coordinates: { lat: 14.337864, lng: 78.531434 },
+      position: [14.337864, 78.531434],
+      description: "Director's residence",
+      type: 'administrative'
+    },
+    {
+      id: '22',
+      name: 'CHANCELLOR HOUSE',
+      coordinates: { lat: 14.338134, lng: 78.531455 },
+      position: [14.338134, 78.531455],
+      description: "Chancellor's residence",
+      type: 'administrative'
+    },
+    {
+      id: '23',
+      name: 'IQAC',
+      coordinates: { lat: 14.336845, lng: 78.540403 },
+      position: [14.336845, 78.540403],
+      description: 'Internal Quality Assurance Cell',
+      type: 'administrative'
+    },
+    {
+      id: '24',
+      name: 'POWER HOUSE',
+      coordinates: { lat: 14.335130, lng: 78.536508 },
+      position: [14.335130, 78.536508],
+      description: 'Campus power station',
+      type: 'facility'
+    },
+    {
+      id: '25',
+      name: 'SBH bank',
+      coordinates: { lat: 14.337307, lng: 78.534577 },
+      position: [14.337307, 78.534577],
+      description: 'State Bank of Hyderabad branch',
+      type: 'commercial'
+    },
+    {
+      id: '26',
+      name: 'POST OFFICE',
+      coordinates: { lat: 14.337199, lng: 78.533624 },
+      position: [14.337199, 78.533624],
+      description: 'Campus post office',
+      type: 'commercial'
+    },
+    {
+      id: '27',
+      name: 'MESS(1,2,3,4)',
+      coordinates: { lat: 14.333798, lng: 78.538112 },
+      position: [14.333798, 78.538112],
+      description: 'Mess blocks 1-4 for students',
+      type: 'facility'
+    },
+    {
+      id: '28',
+      name: 'MESS(5,6,7,8)',
+      coordinates: { lat: 14.333778, lng: 78.538997 },
+      position: [14.333778, 78.538997],
+      description: 'Mess blocks 5-8 for students',
+      type: 'facility'
+    },
+    {
+      id: '29',
+      name: 'RKV POLICE STATION',
+      coordinates: { lat: 14.337865, lng: 78.536239 },
+      position: [14.337865, 78.536239],
+      description: 'Local police station',
+      type: 'external'
+    },
+    {
+      id: '30',
+      name: 'RKV GROUND',
+      coordinates: { lat: 14.337277, lng: 78.537297 },
+      position: [14.337277, 78.537297],
+      description: 'Sports ground',
+      type: 'sports'
+    },
+    {
+      id: '31',
+      name: 'RKV HOSPITAL',
+      coordinates: { lat: 14.337230, lng: 78.532539 },
+      position: [14.337230, 78.532539],
+      description: 'Local hospital',
+      type: 'external'
+    },
+    {
+      id: '32',
+      name: 'MALLELAMA TEMPLE',
+      coordinates: { lat: 14.337122, lng: 78.533270 },
+      position: [14.337122, 78.533270],
+      description: 'Campus temple',
+      type: 'religious'
+    },
+    {
+      id: '33',
+      name: 'RGUKT RKV Supermarket',
+      coordinates: { lat: 14.337313, lng: 78.534002 },
+      position: [14.337313, 78.534002],
+      description: 'Campus Mart',
+      type: 'commercial'
+    },
+    {
+      id: '34',
+      name: 'Computer Center',
+      coordinates: { lat: 14.336280, lng: 78.539276 },
+      position: [14.336280, 78.539276],
+      description: 'Computer center',
+      type: 'academic'
+    },
+    {
+      id: '35',
+      name: 'Main Gate - Entry',
+      coordinates: { lat: 14.334000, lng: 78.538500 },
+      position: [14.334000, 78.538500],
+      description: 'Main campus entrance',
+      type: 'entrance'
+    }
+  ];
 
-  // Academic Blocks
-  {
-    id: 7,
-    name: "CSE BLOCK",
-    position: [14.336055035340083, 78.54158083692525],
-    description: "Computer Science and Engineering Department",
-    type: "academic"
-  },
-  {
-    id: 8,
-    name: "ECE BLOCK",
-    position: [14.334339521893725, 78.54167402874367],
-    description: "Electronics and Communication Engineering",
-    type: "academic"
-  },
-  {
-    id: 9,
-    name: "MME BLOCK",
-    position: [14.337449507358329, 78.54158083692525],
-    description: "Metallurgical and Materials Engineering",
-    type: "academic"
-  },
-  {
-    id: 10,
-    name: "Mechanical Block",
-    position: [14.336426226580581, 78.54342396400071],
-    description: "Mechanical Engineering Department",
-    type: "academic"
-  },
-  {
-    id: 11,
-    name: "Civil Block",
-    position: [14.335202296378826, 78.54358963834459],
-    description: "Civil Engineering Department",
-    type: "academic"
-  },
-  {
-    id: 12,
-    name: "Chemical Block",
-    position: [14.335252457583975, 78.54277162127175],
-    description: "Chemical Engineering Department",
-    type: "academic"
-  },
-  {
-    id: 13,
-    name: "EEE BLOCK",
-    position: [14.336897738891775, 78.54263701086737],
-    description: "Electrical and Electronics Engineering",
-    type: "academic"
-  },
-  {
-    id: 14,
-    name: "ACADEMIC BLOCK 1",
-    position: [14.334968803119954, 78.53699310868649],
-    description: "Main academic building - Block 1",
-    type: "academic"
-  },
-  {
-    id: 15,
-    name: "ACADEMIC BLOCK 2",
-    position: [14.33521232862076, 78.53997586671906],
-    description: "Main academic building - Block 2",
-    type: "academic"
-  },
+  // Function to find coordinates by location name
+  const findCoordinatesByName = (locationName) => {
+    if (!locationName) return null;
 
-  // Facilities
-  {
-    id: 16,
-    name: "CENTRAL LIBRARY",
-    position: [14.335734004582404, 78.5383812511594],
-    description: "Main library with study areas",
-    type: "academic"
-  },
-  {
-    id: 17,
-    name: "MECHANICAL WORKSHOP",
-    position: [14.336195486151997, 78.538857564898],
-    description: "Mechanical engineering workshops",
-    type: "academic"
-  },
-  {
-    id: 18,
-    name: "LAB COMPLEX",
-    position: [14.336225582743108, 78.53808096641116],
-    description: "Central laboratory complex",
-    type: "academic"
-  },
-  {
-    id: 19,
-    name: "Student Activity Center",
-    position: [14.338162545648489, 78.54010066907027],
-    description: "Student clubs and activities",
-    type: "facility"
-  },
-
-  // Administrative
-  {
-    id: 20,
-    name: "GUEST HOUSE",
-    position: [14.332184678623689, 78.53734284404298],
-    description: "Campus guest accommodation",
-    type: "administrative"
-  },
-  {
-    id: 21,
-    name: "DIRECTOR HOUSE",
-    position: [14.337864317150792, 78.53143406574937],
-    description: "Director's residence",
-    type: "administrative"
-  },
-  {
-    id: 22,
-    name: "CHANCELLOR HOUSE",
-    position: [14.338134578074284, 78.53145552342113],
-    description: "Chancellor's residence",
-    type: "administrative"
-  },
-  {
-    id: 23,
-    name: "IQAC",
-    position: [14.336845638433509, 78.54040337254955],
-    description: "Internal Quality Assurance Cell",
-    type: "administrative"
-  },
-  
-
-  // Services
-  {
-    id: 24,
-    name: "POWER HOUSE",
-    position: [14.335130505645743, 78.53650880512313],
-    description: "Campus power station",
-    type: "facility"
-  },
-  {
-    id: 25,
-    name: "SBH bank",
-    position: [14.33730779939238, 78.53457785212983],
-    description: "State Bank of Hyderabad branch",
-    type: "commercial"
-  },
-  {
-    id: 26,
-    name: "POST OFFICE",
-    position: [14.337199152316602, 78.53362466489871],
-    description: "Campus post office",
-    type: "commercial"
-  },
-
-  // Mess
-  {
-    id: 27,
-    name: "MESS(1,2,3,4)",
-    position: [14.333798394953321, 78.53811211964633],
-    description: "Mess blocks 1-4 for students",
-    type: "facility"
-  },
-  {
-    id: 28,
-    name: "MESS(5,6,7,8)",
-    position: [14.333778753858851, 78.53899795941643],
-    description: "Mess blocks 5-8 for students",
-    type: "facility"
-  },
-
-  // External but related
-  {
-    id: 29,
-    name: "RKV POLICE STATION",
-    position: [14.337865524714912, 78.53623953536967],
-    description: "Local police station",
-    type: "external"
-  },
-  {
-    id: 30,
-    name: "RKV GROUND",
-    position: [14.337277470230717, 78.53729782303964],
-    description: "Sports ground",
-    type: "sports"
-  },
-  {
-    id: 31,
-    name: "RKV HOSPITAL",
-    position: [14.33723024216662, 78.53253913584555],
-    description: "Local hospital",
-    type: "external"
-  },
-  
-  {
-    id: 33,
-    name: "MALLELAMA TEMPLE",
-    position: [14.337122786793245, 78.53327056671382],
-    description: "Campus temple",
-    type: "religious"
-  },
-  {
-    id: 34,
-    name: "RGUKT RKV Supermarket",
-    position: [14.337313206228803, 78.53400255814049],
-    description: "Campus Mart",
-    type: "Food"
-  },
-  {
-    id: 35,
-    name: "Computer Center",
-    position: [14.336280806990011, 78.53927630240211],
-    description: "Computer center",
-    type: "administrative"
-  }
-];
-
-  // Calculate route between two points (simplified)
-  const calculateRoute = (from, to) => {
-    // Simple straight line route for demo
-    // In real app, you'd use a routing service like OSRM, Mapbox Directions, etc.
-    const routePoints = [
-      from,
-      [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2], // Midpoint
-      to
-    ];
-    setRoute(routePoints);
-  };
-
-  // Handle location selection
-  const handleLocationClick = (location) => {
-    setDestination(location);
-    if (onLocationSelect) {
-      onLocationSelect(location);
+    // First check in the provided locations prop
+    const fromLocations = locations.find(loc => 
+      loc && loc.name && (
+        loc.name.toLowerCase().includes(locationName.toLowerCase()) ||
+        locationName.toLowerCase().includes(loc.name.toLowerCase())
+      )
+    );
+    
+    if (fromLocations && fromLocations.coordinates) {
+      return [fromLocations.coordinates.lat, fromLocations.coordinates.lng];
     }
     
-    // Calculate route from user location to destination
-    if (userLocation) {
-      calculateRoute(userLocation, location.position);
-    } else {
-      // If no user location, use campus center as start
-      calculateRoute(campusPosition, location.position);
+    // Then check in campusLocations
+    const fromCampus = campusLocations.find(loc => 
+      loc.name.toLowerCase().includes(locationName.toLowerCase()) ||
+      locationName.toLowerCase().includes(loc.name.toLowerCase())
+    );
+    
+    if (fromCampus) {
+      return fromCampus.position;
     }
+    
+    return null;
   };
 
-  // Effect for search location
+  // Process path data and convert to coordinates
   useEffect(() => {
-    if (searchLocation) {
-      const foundLocation = campusLocations.find(
-        loc => loc.name.toLowerCase().includes(searchLocation.toLowerCase())
-      );
-      if (foundLocation) {
-        handleLocationClick(foundLocation);
+    if (pathData && pathData.path && Array.isArray(pathData.path) && pathData.path.length > 0) {
+      const pathCoordinates = [];
+      const waypointMarkers = [];
+      
+      // Convert each location name in the path to coordinates
+      pathData.path.forEach((locationName, index) => {
+        const coords = findCoordinatesByName(locationName);
+        if (coords) {
+          pathCoordinates.push(coords);
+          
+          // Add waypoint markers for intermediate points (not start and end)
+          if (index > 0 && index < pathData.path.length - 1) {
+            waypointMarkers.push({
+              position: coords,
+              name: locationName,
+              step: index
+            });
+          }
+        }
+      });
+      
+      setRoutePath(pathCoordinates);
+      setWaypoints(waypointMarkers);
+      
+      // Fit map to show the entire route if we have enough points
+      if (pathCoordinates.length >= 2 && mapRef.current) {
+        const map = mapRef.current;
+        const latLngs = pathCoordinates.map(coord => L.latLng(coord[0], coord[1]));
+        const routeBounds = L.latLngBounds(latLngs);
+        map.fitBounds(routeBounds, { padding: [50, 50] });
       }
+    } else {
+      setRoutePath([]);
+      setWaypoints([]);
     }
-  }, [searchLocation]);
+  }, [pathData, locations]);
 
-  const getLocationIcon = (type) => {
+  // Handle map load
+  useEffect(() => {
+    if (onMapLoad) {
+      onMapLoad();
+    }
+  }, [onMapLoad]);
+
+  // Safe function to get location icon
+  const getLocationIcon = (location) => {
+    if (!location) return '📍';
+    
+    const type = location.type || 'default';
     const icons = {
       academic: '📚',
-      residential: '🏠', 
-      administrative: '🏛️',
+      library: '📖',
+      administration: '🏛️',
+      hostel: '🏠',
+      food: '🍽️',
       sports: '⚽',
-      facility: '🏢'
+      auditorium: '🎭',
+      medical: '🏥',
+      workshop: '⚒️',
+      entrance: '🚪',
+      facility: '🏢',
+      commercial: '🏪',
+      external: '🏢',
+      religious: '🛕',
+      default: '📍'
     };
-    return icons[type] || '📍';
+    return icons[type] || icons.default;
   };
+
+  // Safe function to handle marker click
+  const handleMarkerClick = (location) => {
+    if (onLocationClick && location) {
+      onLocationClick(location);
+    }
+  };
+
+  // Safe function to get position for a location
+  const getLocationPosition = (location) => {
+    if (!location) return null;
+    
+    // If location has position array, use it
+    if (location.position && Array.isArray(location.position)) {
+      return location.position;
+    }
+    
+    // If location has coordinates object, convert to array
+    if (location.coordinates && typeof location.coordinates === 'object') {
+      return [location.coordinates.lat, location.coordinates.lng];
+    }
+    
+    return null;
+  };
+
+  // Combine provided locations with campus locations for display, filtering out invalid ones
+  const displayLocations = React.useMemo(() => {
+    const allLocations = locations.length > 0 ? locations : campusLocations;
+    
+    return allLocations
+      .filter(location => location && getLocationPosition(location))
+      .map(location => ({
+        ...location,
+        position: getLocationPosition(location)
+      }));
+  }, [locations]);
 
   return (
     <div className="map-container">
       <MapContainer 
-        center={campusPosition} 
-        zoom={17} 
+        center={center || campusPosition} 
+        zoom={zoom} 
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%' }}
         ref={mapRef}
+        whenCreated={(map) => {
+          mapRef.current = map;
+        }}
       >
-        <MapController center={destination ? destination.position : campusPosition} zoom={17} />
+        <MapController 
+          center={center || campusPosition} 
+          zoom={zoom} 
+          bounds={bounds}
+        />
         
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -376,11 +521,14 @@ const RealMap = ({ searchLocation, userLocation, onLocationSelect }) => {
         />
         
         {/* User Location Marker */}
-        {userLocation && (
-          <Marker position={userLocation} icon={userIcon}>
+        {userLocation && userLocation.lat && userLocation.lng && (
+          <Marker 
+            position={[userLocation.lat, userLocation.lng]} 
+            icon={userIcon}
+          >
             <Popup>
               <div className="popup-content">
-                <strong>📍 Your Location</strong>
+                <strong>📍 Your Current Location</strong>
                 <br />
                 <em>You are here</em>
               </div>
@@ -389,55 +537,81 @@ const RealMap = ({ searchLocation, userLocation, onLocationSelect }) => {
         )}
 
         {/* Destination Marker */}
-        {destination && (
-          <Marker position={destination.position} icon={destinationIcon}>
+        {isNavigating && destination && destination.coordinates && (
+          <Marker 
+            position={[destination.coordinates.lat, destination.coordinates.lng]} 
+            icon={destinationIcon}
+          >
             <Popup>
               <div className="popup-content">
                 <strong>🎯 {destination.name}</strong>
                 <br />
-                {destination.description}
+                {destination.description || destination.building}
                 <br />
                 <br />
-                <small>Destination</small>
+                <small>Navigation Destination</small>
               </div>
             </Popup>
           </Marker>
         )}
 
-        {/* Route Polyline */}
-        {route.length > 0 && (
-          <Polyline
-            positions={route}
-            color="#800020"
-            weight={6}
-            opacity={0.7}
-            dashArray="10, 10"
-          />
-        )}
+        {/* Waypoint Markers for Path */}
+        {waypoints.map((waypoint, index) => (
+          <Marker 
+            key={`waypoint-${index}`}
+            position={waypoint.position} 
+            icon={waypointIcon}
+          >
+            <Popup>
+              <div className="popup-content">
+                <strong>Step {waypoint.step}</strong>
+                <br />
+                {waypoint.name}
+                <br />
+                <small>Route Waypoint</small>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
-        {/* Campus Building Markers */}
-        {campusLocations.map(location => (
+        {/* Navigation Route Polyline */}
+{routePath && routePath.length > 0 && (
+  <Polyline
+    positions={routePath}
+    color="#800020"
+    weight={6}
+    opacity={0.8}
+    dashArray="10, 5"
+  />
+)}
+
+        {/* Campus Building Markers - Only render valid locations */}
+        {displayLocations.map(location => (
           <Marker 
             key={location.id} 
             position={location.position}
             eventHandlers={{
-              click: () => handleLocationClick(location)
+              click: () => handleMarkerClick(location)
             }}
           >
             <Popup>
               <div className="popup-content">
                 <strong>
-                  {getLocationIcon(location.type)} {location.name}
+                  {getLocationIcon(location)} {location.name}
                 </strong>
                 <br />
-                {location.description}
+                {location.description || location.building}
+                <br />
+                {location.type && (
+                  <small>Type: {location.type}</small>
+                )}
                 <br />
                 <br />
                 <button 
                   className="btn-get-directions"
-                  onClick={() => handleLocationClick(location)}
+                  onClick={() => handleMarkerClick(location)}
                 >
-                  🚗 Get Directions
+                  🚗 View Details
                 </button>
               </div>
             </Popup>
@@ -445,41 +619,7 @@ const RealMap = ({ searchLocation, userLocation, onLocationSelect }) => {
         ))}
       </MapContainer>
 
-      {/* Directions Panel */}
-      {destination && (
-        <div className="directions-panel">
-          <h3>🚗 Directions to {destination.name}</h3>
-          <div className="route-steps">
-            <div className="route-step">
-              <span className="step-number">1</span>
-              <span className="step-text">
-                {userLocation ? 'Start from your current location' : 'Start from campus center'}
-              </span>
-            </div>
-            <div className="route-step">
-              <span className="step-number">2</span>
-              <span className="step-text">
-                Head towards {destination.name}
-              </span>
-            </div>
-            <div className="route-step">
-              <span className="step-number">3</span>
-              <span className="step-text">
-                Arrive at {destination.name}
-              </span>
-            </div>
-          </div>
-          <button 
-            className="btn-close-directions"
-            onClick={() => {
-              setDestination(null);
-              setRoute([]);
-            }}
-          >
-            Close Directions
-          </button>
-        </div>
-      )}
+      
     </div>
   );
 };
