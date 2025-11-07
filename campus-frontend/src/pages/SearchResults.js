@@ -1,109 +1,161 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { locationsAPI } from '../services/api';
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './SearchResults.css';
 
 const SearchResults = () => {
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Safely get search results from location state
+  const searchParams = new URLSearchParams(location.search);
   const query = searchParams.get('q') || '';
   
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({
-    category: 'all',
-    sort: 'relevance'
-  });
+  // Get results from location state, ensure it's an array
+  const results = location.state?.results || [];
+  const isLoading = location.state?.isLoading || false;
+  const error = location.state?.error || null;
 
-  useEffect(() => {
-    if (query) {
-      performSearch(query);
+  // Sample campus locations for fallback
+  const campusLocations = [
+    {
+      id: 1,
+      name: "Main Academic Block",
+      type: "academic",
+      description: "Central teaching building with classrooms and laboratories",
+      position: [14.3358, 78.5402]
+    },
+    {
+      id: 2, 
+      name: "Central Library",
+      type: "academic",
+      description: "Digital library with study areas and computer lab",
+      position: [14.3350, 78.5395]
+    },
+    {
+      id: 3,
+      name: "Student Hostels",
+      type: "residential",
+      description: "Student accommodation blocks A, B, C, D",
+      position: [14.3365, 78.5388]
+    },
+    {
+      id: 4,
+      name: "Administration Building",
+      type: "administrative",
+      description: "Principal office and administrative departments",
+      position: [14.3348, 78.5400]
+    },
+    {
+      id: 5,
+      name: "Main Auditorium",
+      type: "facility",
+      description: "Main auditorium for events and conferences",
+      position: [14.3352, 78.5408]
     }
-  }, [query]);
-
-  const performSearch = async (searchQuery) => {
-    setLoading(true);
-    try {
-      const response = await locationsAPI.search(searchQuery);
-      setResults(response.data);
-    } catch (error) {
-      console.error('Search failed:', error);
-      setResults([]);
-    }
-    setLoading(false);
-  };
-
-  const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'academic', label: 'Academic' },
-    { value: 'library', label: 'Library' },
-    { value: 'cafeteria', label: 'Food & Dining' },
-    { value: 'sports', label: 'Sports' }
   ];
 
+  // Filter results based on search query
+  const filteredResults = query ? 
+    campusLocations.filter(location =>
+      location.name.toLowerCase().includes(query.toLowerCase()) ||
+      location.type.toLowerCase().includes(query.toLowerCase()) ||
+      location.description.toLowerCase().includes(query.toLowerCase())
+    ) : [];
+
+  // Use actual results if available, otherwise use filtered results
+  const displayResults = Array.isArray(results) && results.length > 0 ? results : filteredResults;
+
+  const handleLocationClick = (location) => {
+    navigate('/map', { 
+      state: { 
+        selectedLocation: location,
+        searchLocation: location.name
+      }
+    });
+  };
+
+  const getLocationIcon = (type) => {
+    const icons = {
+      academic: '📚',
+      residential: '🏠', 
+      administrative: '🏛️',
+      sports: '⚽',
+      facility: '🏢'
+    };
+    return icons[type] || '📍';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="search-results-container">
+        <div className="container">
+          <h1>Searching for "{query}"...</h1>
+          <div className="loading-spinner">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="search-results-container">
+        <div className="container">
+          <h1>Search Results</h1>
+          <div className="error-message">
+            Error: {error}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="search-results-page">
-      <div className="search-header">
-        <div className="search-container">
-          <input 
-            type="text" 
-            placeholder="Search locations..."
-            defaultValue={query}
-            className="search-input"
-          />
-        </div>
-      </div>
+    <div className="search-results-container">
+      <div className="container">
+        <h1>Search Results</h1>
+        
+        {query && (
+          <p className="search-query">Showing results for: "<strong>{query}</strong>"</p>
+        )}
 
-      <div className="results-info">
-        <p>Showing {results.length} results for "{query}"</p>
-      </div>
-
-      {loading ? (
-        <div className="results-loading">
-          <div className="loading-spinner"></div>
-          <p>Searching campus locations...</p>
-        </div>
-      ) : (
-        <div className="results-container">
-          {results.map(location => (
-            <div key={location._id} className="result-card">
-              <div className="result-icon">{getLocationIcon(location.type)}</div>
-              
-              <div className="result-content">
-                <h3 className="result-name">{location.name}</h3>
-                <p className="result-location">
-                  📍 {location.building}
-                </p>
-                <p className="result-description">{location.description}</p>
-                <div className="result-amenities">
-                  {location.amenities?.slice(0, 3).map((amenity, index) => (
-                    <span key={index} className="amenity-tag">{amenity}</span>
-                  ))}
+        {displayResults.length === 0 ? (
+          <div className="no-results">
+            <h3>No results found for "{query}"</h3>
+            <p>Try searching for:</p>
+            <ul className="suggestions">
+              <li>Academic Block</li>
+              <li>Library</li>
+              <li>Hostels</li>
+              <li>Auditorium</li>
+              <li>Sports Complex</li>
+            </ul>
+          </div>
+        ) : (
+          <div className="results-grid">
+            {displayResults.map((result) => (
+              <div 
+                key={result.id} 
+                className="result-card"
+                onClick={() => handleLocationClick(result)}
+              >
+                <div className="result-icon">
+                  {getLocationIcon(result.type)}
                 </div>
+                <div className="result-content">
+                  <h3 className="result-name">{result.name}</h3>
+                  <p className="result-type">{result.type}</p>
+                  <p className="result-description">{result.description}</p>
+                </div>
+                <button className="view-on-map-btn">
+                  View on Map →
+                </button>
               </div>
-              
-              <div className="result-actions">
-                <Link to={`/map?location=${location._id}`} className="btn btn-primary">
-                  View on Map
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
-};
-
-// Helper function to get icons based on location type
-const getLocationIcon = (type) => {
-  const icons = {
-    academic: '🏫',
-    library: '📚',
-    cafeteria: '🍽️',
-    sports: '⚽',
-    administrative: '🏛️'
-  };
-  return icons[type] || '📍';
 };
 
 export default SearchResults;

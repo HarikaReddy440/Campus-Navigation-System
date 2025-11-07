@@ -7,10 +7,75 @@ const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Sample campus locations data
+  const campusLocations = [
+    {
+      id: 1,
+      name: "Main Academic Block",
+      type: "academic",
+      description: "Central teaching building with classrooms and laboratories",
+      position: [14.3358, 78.5402]
+    },
+    {
+      id: 2, 
+      name: "Central Library",
+      type: "academic",
+      description: "Digital library with study areas and computer lab",
+      position: [14.3350, 78.5395]
+    },
+    {
+      id: 3,
+      name: "Student Hostels",
+      type: "residential",
+      description: "Student accommodation blocks A, B, C, D",
+      position: [14.3365, 78.5388]
+    },
+    {
+      id: 4,
+      name: "Administration Building",
+      type: "administrative",
+      description: "Principal office and administrative departments",
+      position: [14.3348, 78.5400]
+    },
+    {
+      id: 5,
+      name: "Main Auditorium",
+      type: "facility",
+      description: "Main auditorium for events and conferences",
+      position: [14.3352, 78.5408]
+    },
+    {
+      id: 6,
+      name: "Sports Complex",
+      type: "sports",
+      description: "Sports ground and gymnasium",
+      position: [14.3370, 78.5395]
+    },
+    {
+      id: 7,
+      name: "Cafeteria & Food Court",
+      type: "facility",
+      description: "Student dining area and food court",
+      position: [14.3355, 78.5385]
+    }
+  ];
+
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+      // Filter locations based on search query
+      const filteredResults = campusLocations.filter(location =>
+        location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        location.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        location.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`, {
+        state: {
+          results: filteredResults, // Pass the filtered results
+          isLoading: false
+        }
+      });
     }
   };
 
@@ -39,6 +104,25 @@ const Home = () => {
   const filteredSuggestions = suggestions.filter(suggestion =>
     suggestion.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion) => {
+    setSearchQuery(suggestion);
+    
+    // Filter locations for the clicked suggestion
+    const filteredResults = campusLocations.filter(location =>
+      location.name.toLowerCase().includes(suggestion.toLowerCase()) ||
+      location.type.toLowerCase().includes(suggestion.toLowerCase()) ||
+      location.description.toLowerCase().includes(suggestion.toLowerCase())
+    );
+
+    navigate(`/search?q=${encodeURIComponent(suggestion)}`, {
+      state: {
+        results: filteredResults,
+        isLoading: false
+      }
+    });
+  };
 
   return (
     <div className="home-container">
@@ -76,10 +160,7 @@ const Home = () => {
                     <div
                       key={index}
                       className="suggestion-item"
-                      onMouseDown={() => {
-                        setSearchQuery(suggestion);
-                        navigate(`/search?q=${encodeURIComponent(suggestion)}`);
-                      }}
+                      onMouseDown={() => handleSuggestionClick(suggestion)}
                     >
                       {suggestion}
                     </div>
@@ -100,7 +181,20 @@ const Home = () => {
                   className="quick-access-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate(item.path);
+                    // Pass the corresponding location data when clicking quick access
+                    const locationData = campusLocations.find(
+                      loc => loc.name.toLowerCase().includes(item.label.toLowerCase())
+                    );
+                    
+                    if (locationData) {
+                      navigate(item.path, {
+                        state: {
+                          selectedLocation: locationData
+                        }
+                      });
+                    } else {
+                      navigate(item.path);
+                    }
                   }}
                 >
                   <span className="quick-access-icon">{item.icon}</span>
