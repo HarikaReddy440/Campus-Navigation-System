@@ -8,34 +8,121 @@ const Login = () => {
     email: '',
     password: ''
   });
+  
+  const [location, setLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [loginError, setLoginError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Fixed: Make getCurrentLocation return a Promise
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      setLocationLoading(true);
+      setLocationError(null);
+
+      if (!navigator.geolocation) {
+        const error = 'Geolocation is not supported by this browser.';
+        setLocationError(error);
+        setLocationLoading(false);
+        reject(error);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const locationData = { latitude, longitude };
+          setLocation(locationData);
+          setLocationLoading(false);
+          resolve(locationData); // Resolve with location data
+        },
+        (error) => {
+          const errorMsg = getErrorMessage(error);
+          setLocationError(errorMsg);
+          setLocationLoading(false);
+          reject(errorMsg); // Reject with error
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        }
+      );
+    });
+  };
+
+  const getErrorMessage = (error) => {
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        return 'Location access denied. Please enable location permissions.';
+      case error.POSITION_UNAVAILABLE:
+        return 'Location information unavailable.';
+      case error.TIMEOUT:
+        return 'Location request timed out.';
+      default:
+        return 'An unknown error occurred.';
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
-    setError('');
+    setLoginError('');
+    setLocationError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setLoginError('');
+    setLocationError('');
 
-    const result = await login(formData.email, formData.password);
-    
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.message);
+    try {
+      // Step 1: Try to get location (but don't block login if it fails)
+      let userLocation = null;
+      try {
+        userLocation = await getCurrentLocation();
+        console.log('Location fetched:', userLocation);
+      } catch (locationErr) {
+        console.log('Location not available, continuing without it:', locationErr);
+        // Don't block login if location fails
+      }
+
+      // Step 2: Proceed with login
+      const result = await login(formData.email, formData.password);
+      
+      if (result.success) {
+        // Store location in localStorage if available
+        if (userLocation) {
+          localStorage.setItem('userLocation', JSON.stringify(userLocation));
+          localStorage.setItem('locationTimestamp', new Date().toISOString());
+        }
+        
+        navigate('/');
+      } else {
+        setLoginError(result.message);
+      }
+    } catch (error) {
+      setLoginError('Login failed. Please try again.');
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
+  };
+
+  // Optional: Add a button to manually trigger location
+  const handleManualLocation = async () => {
+    try {
+      await getCurrentLocation();
+    } catch (error) {
+      // Error is already set in state
+    }
   };
 
   return (
@@ -51,9 +138,51 @@ const Login = () => {
             <p>Sign in to your account to continue</p>
           </div>
 
-          {error && (
+          {/* Location Status Display */}
+          <div className="location-status">
+            {locationLoading && (
+              <div className="location-loading">
+                <span>📍 Getting your location...</span>
+              </div>
+            )}
+            
+            {location && (
+              <div className="location-success">
+                <span>✅ Location detected</span>
+                <small>Lat: {location.latitude.toFixed(6)}, Lng: {location.longitude.toFixed(6)}</small>
+              </div>
+            )}
+            
+            {locationError && (
+              <div className="location-error">
+                <span>❌ {locationError}</span>
+                <button 
+                  type="button" 
+                  onClick={handleManualLocation}
+                  className="retry-location-btn"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {!location && !locationLoading && !locationError && (
+              <div className="location-prompt">
+                <span>📍 Location access helps with navigation</span>
+                <button 
+                  type="button" 
+                  onClick={handleManualLocation}
+                  className="enable-location-btn"
+                >
+                  Enable Location
+                </button>
+              </div>
+            )}
+          </div>
+
+          {loginError && (
             <div className="error-message">
-              {error}
+              {loginError}
             </div>
           )}
 
